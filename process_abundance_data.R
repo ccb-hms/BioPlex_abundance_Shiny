@@ -2,6 +2,8 @@
 # PIN DATASETS
 #--------------
 
+# Navigate to working directory 
+
 # Load in rds
 prot_df <- readRDS("~/Desktop/R/docker-data/prot_assay.rds")
 ptm_df <- readRDS("~/Desktop/R/docker-data/ptm_assay.rds")
