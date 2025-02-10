@@ -7,18 +7,27 @@ library(tidyr)
 library(DT)
 
 ## Feb 10, 2025
-# Load the actual data
+#-----------
+# LOAD DATA
+#-----------
+
 df <- readRDS("~/Desktop/R/docker-data/prot_assay.rds")
 ptm_df <- readRDS("~/Desktop/R/docker-data/ptm_assay.rds")
+
+#---------------------
+# FORMAT SIDEBAR PANEL
+#---------------------
 
 ui <- page_sidebar(
     title = "Differential protein abundance and PTM explorer",
     
-    # SIDEBAR
+    ## Sidebar selection options
     sidebar = sidebar(
         selectInput("protein_choice", 
                     "Select Protein:",
-                    choices = unique(df$Protein)),
+                    choices = sort(unique(df$Protein)),
+                    size = 10,
+                    selectize = FALSE), 
          selectInput("PTM_type",
                      "Select PTM type:",
                      choices = c("Acetylation" = "acetylation",
@@ -31,16 +40,16 @@ ui <- page_sidebar(
                     choices = c("HEK_293T", "HCT116", "U2OS", "RPE1", "HeLa")),
     ),
     
+    ## Format layout
     div(
-    style = "overflow-y: auto; height: calc(100vh - 60px);",  
-    # Makes main content scrollable
+    style = "height: calc(100vh - 60px);",  
     layout_columns(
         col_widths = c(6, 6),
         
         # PROTEIN BOXPLOT
         card(
             card_header(paste("Protein abundance boxplot")),
-            plotOutput("value_boxplot", height = "300px"),
+            plotOutput("protein_boxplot", height = "300px"),
             textOutput("stats_result")
         ),
         
@@ -65,19 +74,24 @@ ui <- page_sidebar(
     )
 )
 
+# -----------------------------
+# ANALYSIS AND PLOT RENDERING
+# -----------------------------
+
 server <- function(input, output) {
     
-    selected_ptm <- reactiveVal()
-    
-    # Render the select protein table
+    #------------------------
+    # SELECTED PROTEIN TABLE
+    #------------------------
     output$protein_table <- renderTable({
         # Filter the dataframe to show only the selected protein
         df[df$Protein == input$protein_choice, ]
     })
     
-    
-    # Wrangle and boxplot
-    output$value_boxplot <- renderPlot({
+    #---------------------------
+    # PROTEIN ABUNDANCE BOXPLOT
+    #---------------------------
+    output$protein_boxplot <- renderPlot({
         
         # Filter for selected protein and reshape data for plotting
         df_filtered <- df[df$Protein == input$protein_choice, ]
@@ -91,12 +105,7 @@ server <- function(input, output) {
             ) |>
             mutate(cell_line = gsub("_$", "", cell_line)) ##|> 
             ##mutate(relative expression = log2(relative expression))
-
-
-        ggboxplot(df_filtered, x = "cell_line", y = "relative_expression",
-                  color = "cell_line", palette = "jco",
-                  add = "jitter") +
-            theme(legend.position = "")
+        
         
         # Change stats based on analysis type
         if (input$analysis_type == "anova") {
@@ -105,24 +114,30 @@ server <- function(input, output) {
                       color = "cell_line", palette = "jco",
                       add = "jitter") +
                 theme(legend.position = "") +
+                ggtitle(paste("Protein:", input$protein_choice)) +
                 stat_compare_means(method = "anova",
-                                   vjust = 25) +
+                                   vjust = 15) +
                 stat_compare_means(label = "p.signif", method = "t.test",
                          ref.group = input$ref_group) 
+            
         } else if (input$analysis_type == "kruskal.test") {
             # Perform kruskal.test t-test
             ggboxplot(df_filtered, x = "cell_line", y = "relative_expression",
                       color = "cell_line", palette = "jco",
                       add = "jitter") +
                 theme(legend.position = "") +
+                ggtitle(paste("Protein:", input$protein_choice)) +
                 stat_compare_means(method = "kruskal.test",
-                                   vjust = 25) +
+                                   vjust = 15) +
                 stat_compare_means(label = "p.signif", method = "t.test",
                          ref.group = input$ref_group)
         }
     })
     
-    # Pairwise t-test table
+    #---------------------------
+    # CALCULATE PAIRWISE T-TEST
+    #---------------------------
+    ## Not rendered currently
     output$stats <- renderTable({
     
     df_filtered <- df[df$Protein == input$protein_choice, ]
@@ -161,68 +176,94 @@ server <- function(input, output) {
    
     }, digits = 3)
     
-    ### PTM boxplot
-    output$ptm_boxplot <- renderPlot({
-        
-    # Filter for selected protein and reshape data for plotting
-    ptm_filtered <- ptm_df[ptm_df$Protein == input$protein_choice, ]
+    #------------
+    # PTM TABLE 
+    #------------
     
-    ptm_avg <- ptm_filtered |> 
-            group_by(Protein, PTM) |>
-            summarise(across(HEK_293T_1:HeLa_4, mean, na.rm = TRUE))
+    selected_row <- reactiveVal()
+    
+    # Modify the table output to store the selected row
+    output$ptm_table <- renderDataTable({
+        cdf <- ptm_df[ptm_df$Protein == input$protein_choice, ]
         
-    ptm_long <- ptm_avg |> 
+        if (input$PTM_type == "acetylation") {
+            cdf <- cdf[cdf$PTM == "Acetylation", ]
+        } else if (input$PTM_type == "phosphorylation") {
+            cdf <- cdf[cdf$PTM == "Phosphorylation", ]
+        }
+        
+        DT::datatable(cdf, 
+                  selection = 'single',
+                  options = list(pageLength = 5))
+    })
+    
+    # Update the selected row when user clicks
+    observeEvent(input$ptm_table_rows_selected, {
+        cdf <- ptm_df[ptm_df$Protein == input$protein_choice, ]
+        
+        if (input$PTM_type == "acetylation") {
+            cdf <- cdf[cdf$PTM == "Acetylation", ]
+        } else if (input$PTM_type == "phosphorylation") {
+            cdf <- cdf[cdf$PTM == "Phosphorylation", ]
+        }
+        
+        # Store the selected row data
+        selected_row(cdf[input$ptm_table_rows_selected, ])
+    })
+    
+    #-----------------------
+    # REACTIVE PTM BOXPLOT 
+    #-----------------------
+    
+    # Modify the boxplot to use the selected row data
+    output$ptm_boxplot <- renderPlot({
+        req(selected_row())  # Ensure we have a selected row
+        
+        # Get the selected row data
+        selected_data <- selected_row()
+        
+        # Create long format data from the selected row
+        ptm_long <- selected_data |> 
             pivot_longer(
-                cols = -c(Protein, PTM),
+                cols = -c(Protein, Site, PTM),
                 names_to = c("cell_line", "replicate"),
                 names_pattern = "(.*)_([0-9])$",
                 values_to = "average relative abundance"
               ) |>
               mutate(cell_line = gsub("_$", "", cell_line))
-
-
-    # Change stats based PTM_type
-    if (input$PTM_type == "acetylation") {
-            # Filter acetylation
-        ptm_long |> filter(PTM == "Acetylation") |> 
-            ggboxplot(x = "cell_line", y = "average relative abundance",
-                      color = "cell_line", palette = "jco",
-                      add = "jitter") +
-                theme(legend.position = "") 
-        } else if (input$PTM_type == "phosphorylation") {
-            # Filter phosphorylation
-        ptm_long |> filter(PTM == "Phosphorylation") |> 
-            ggboxplot(x = "cell_line", y = "average relative abundance",
-                      color = "cell_line", palette = "jco",
-                      add = "jitter") +
-                theme(legend.position = "")
+        
+        # Change stats based on analysis type
+        if (input$analysis_type == "anova") {
+            # Perform ANOVA
+            ggboxplot(ptm_long, 
+                  x = "cell_line", 
+                  y = "average relative abundance",
+                  color = "cell_line", 
+                  palette = "jco",
+                  add = "jitter") +
+            theme(legend.position = "") +
+            ggtitle(paste("Site:", selected_data$Site)) +
+                stat_compare_means(method = "anova",
+                                   vjust = 15) +
+                stat_compare_means(label = "p.signif", method = "t.test",
+                         ref.group = input$ref_group) 
+        } else if (input$analysis_type == "kruskal.test") {
+            # Perform kruskal.test t-test
+            ggboxplot(ptm_long, 
+                  x = "cell_line", 
+                  y = "average relative abundance",
+                  color = "cell_line", 
+                  palette = "jco",
+                  add = "jitter") +
+            theme(legend.position = "") +
+            ggtitle(paste("Site:", selected_data$Site)) +
+                stat_compare_means(method = "kruskal.test",
+                                   vjust = 15) +
+                stat_compare_means(label = "p.signif", method = "t.test",
+                         ref.group = input$ref_group)
         }
     })
-    
-    output$ptm_table <- renderDataTable({
-        
-        cdf <- ptm_df[ptm_df$Protein == input$protein_choice, ]
-        
-         if (input$PTM_type == "acetylation") {
-            # Filter acetylation
-            cdf <- cdf[cdf$PTM == "Acetylation", ]
-            cdf
-        } else if (input$PTM_type == "phosphorylation") {
-            # Filter phosphorylation
-            cdf <- cdf[cdf$PTM == "Phosphorylation", ]
-            cdf
-        }
-        cdf
-        
-         DT::datatable(cdf, 
-                  selection = 'single',
-                  options = list(pageLength = 5))
-                  
-    })
-         
-         observeEvent(input$ptm_table_rows_selected, {
-            selected_ptm(input$ptm_table_rows_selected)
-        })
+
 }
 
 shinyApp(ui, server)
