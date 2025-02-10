@@ -7,12 +7,20 @@ library(tidyr)
 library(DT)
 
 ## Feb 10, 2025
-#-----------
-# LOAD DATA
-#-----------
+#---------------------
+# READ DATA FROM PINS
+#---------------------
 
-df <- readRDS("~/Desktop/R/docker-data/prot_assay.rds")
-ptm_df <- readRDS("~/Desktop/R/docker-data/ptm_assay.rds")
+# Read the pinned data from Posit Connect
+board <- board_connect(
+    server = Sys.getenv("POSIT_SERVER_URL"), 
+    key = Sys.getenv("POSIT_API_KEY")
+)
+
+prot_df <- pin_read(board, 
+                    name = "tram_nguyen@hms.harvard.edu/protein_abundance_data")
+ptm_df <- pin_read(board, 
+                   name = "tram_nguyen@hms.harvard.edu/ptm_exp_data")
 
 #---------------------
 # FORMAT SIDEBAR PANEL
@@ -25,7 +33,7 @@ ui <- page_sidebar(
     sidebar = sidebar(
         selectInput("protein_choice", 
                     "Select Protein:",
-                    choices = sort(unique(df$Protein)),
+                    choices = sort(unique(prot_df$Protein)),
                     size = 10,
                     selectize = FALSE), 
          selectInput("PTM_type",
@@ -85,7 +93,7 @@ server <- function(input, output) {
     #------------------------
     output$protein_table <- renderTable({
         # Filter the dataframe to show only the selected protein
-        df[df$Protein == input$protein_choice, ]
+        prot_df[prot_df$Protein == input$protein_choice, ]
     })
     
     #---------------------------
@@ -94,7 +102,7 @@ server <- function(input, output) {
     output$protein_boxplot <- renderPlot({
         
         # Filter for selected protein and reshape data for plotting
-        df_filtered <- df[df$Protein == input$protein_choice, ]
+        df_filtered <- prot_df[prot_df$Protein == input$protein_choice, ]
         
         df_filtered <- df_filtered |>
             pivot_longer(
@@ -140,7 +148,7 @@ server <- function(input, output) {
     ## Not rendered currently
     output$stats <- renderTable({
     
-    df_filtered <- df[df$Protein == input$protein_choice, ]
+    df_filtered <- prot_df[prot_df$Protein == input$protein_choice, ]
         
     df_filtered <- df_filtered |>
             pivot_longer(
