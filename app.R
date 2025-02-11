@@ -5,11 +5,17 @@ library(ggpubr)
 library(dplyr)
 library(tidyr)
 library(DT)
+library(pins)
 
 ## Feb 10, 2025
 #---------------------
 # READ DATA FROM PINS
 #---------------------
+
+# Read the server URL and API keys
+readRenviron(".Renviron")
+server_url <- Sys.getenv("POSIT_SERVER_URL")
+api_key <- Sys.getenv("POSIT_API_KEY")
 
 # Read the pinned data from Posit Connect
 board <- board_connect(
