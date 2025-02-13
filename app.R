@@ -116,15 +116,15 @@ server <- function(input, output) {
                 names_pattern = "(.*)_([0-9])$",
                 values_to = "relative expression"
             ) |>
-            mutate(cell_line = gsub("_$", "", cell_line)) ##|> 
+            mutate("cell line" = gsub("_$", "", cell_line)) ##|> 
             ##mutate(relative expression = log2(relative expression))
         
         
         # Change stats based on analysis type
         if (input$analysis_type == "anova") {
             # Perform ANOVA
-            ggboxplot(df_filtered, x = "cell_line", y = "relative expression",
-                      color = "cell_line", palette = "jco",
+            ggboxplot(df_filtered, x = "cell line", y = "relative expression",
+                      color = "cell line", palette = "jco",
                       add = "jitter") +
                 theme(legend.position = "") +
                 ggtitle(paste("Protein:", input$protein_choice)) +
@@ -135,8 +135,8 @@ server <- function(input, output) {
             
         } else if (input$analysis_type == "kruskal.test") {
             # Perform kruskal.test t-test
-            ggboxplot(df_filtered, x = "cell_line", y = "relative expression",
-                      color = "cell_line", palette = "jco",
+            ggboxplot(df_filtered, x = "cell line", y = "relative expression",
+                      color = "cell line", palette = "jco",
                       add = "jitter") +
                 theme(legend.position = "") +
                 ggtitle(paste("Protein:", input$protein_choice)) +
@@ -162,7 +162,7 @@ server <- function(input, output) {
                 names_pattern = "(.*)_([0-9])$",
                 values_to = "relative expression"
             ) |>
-            mutate(cell_line = gsub("_$", "", cell_line))
+            mutate("cell line" = gsub("_$", "", cell_line))
     
     # Convert 'Group' to a factor (if it's not already)
     df_filtered$cell_line <- factor(df_filtered$cell_line, 
@@ -246,15 +246,15 @@ server <- function(input, output) {
                 names_pattern = "(.*)_([0-9])$",
                 values_to = "relative abundance"
               ) |>
-              mutate(cell_line = gsub("_$", "", cell_line))
+              mutate("cell line" = gsub("_$", "", cell_line))
         
         # Change stats based on analysis type
         if (input$analysis_type == "anova") {
             # Perform ANOVA
             ggboxplot(ptm_long, 
-                  x = "cell_line", 
+                  x = "cell line", 
                   y = "relative abundance",
-                  color = "cell_line", 
+                  color = "cell line", 
                   palette = "jco",
                   add = "jitter") +
             theme(legend.position = "") +
@@ -266,9 +266,9 @@ server <- function(input, output) {
         } else if (input$analysis_type == "kruskal.test") {
             # Perform kruskal.test t-test
             ggboxplot(ptm_long, 
-                  x = "cell_line", 
+                  x = "cell line", 
                   y = "relative abundance",
-                  color = "cell_line", 
+                  color = "cell line", 
                   palette = "jco",
                   add = "jitter") +
             theme(legend.position = "") +
