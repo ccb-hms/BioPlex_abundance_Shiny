@@ -7,7 +7,7 @@ library(tidyr)
 library(DT)
 library(pins)
 
-## Feb 11, 2025
+## Feb 12, 2025
 #---------------------
 # READ DATA FROM PINS
 #---------------------
@@ -83,7 +83,7 @@ ui <- page_sidebar(
     # PTM TABLE
     card(
         card_header("Selected ptm abundance"),
-        DT::dataTableOutput("ptm_table"))
+        DT::dataTableOutput("ptm_table"), rownames = FALSE)
     )
 )
 
@@ -114,7 +114,7 @@ server <- function(input, output) {
                 cols = -Protein,
                 names_to = c("cell_line", "replicate"),
                 names_pattern = "(.*)_([0-9])$",
-                values_to = "relative_expression"
+                values_to = "relative expression"
             ) |>
             mutate(cell_line = gsub("_$", "", cell_line)) ##|> 
             ##mutate(relative expression = log2(relative expression))
@@ -123,7 +123,7 @@ server <- function(input, output) {
         # Change stats based on analysis type
         if (input$analysis_type == "anova") {
             # Perform ANOVA
-            ggboxplot(df_filtered, x = "cell_line", y = "relative_expression",
+            ggboxplot(df_filtered, x = "cell_line", y = "relative expression",
                       color = "cell_line", palette = "jco",
                       add = "jitter") +
                 theme(legend.position = "") +
@@ -135,7 +135,7 @@ server <- function(input, output) {
             
         } else if (input$analysis_type == "kruskal.test") {
             # Perform kruskal.test t-test
-            ggboxplot(df_filtered, x = "cell_line", y = "relative_expression",
+            ggboxplot(df_filtered, x = "cell_line", y = "relative expression",
                       color = "cell_line", palette = "jco",
                       add = "jitter") +
                 theme(legend.position = "") +
@@ -160,7 +160,7 @@ server <- function(input, output) {
                 cols = -Protein,
                 names_to = c("cell_line", "replicate"),
                 names_pattern = "(.*)_([0-9])$",
-                values_to = "relative_expression"
+                values_to = "relative expression"
             ) |>
             mutate(cell_line = gsub("_$", "", cell_line))
     
@@ -198,16 +198,19 @@ server <- function(input, output) {
     # Modify the table output to store the selected row
     output$ptm_table <- renderDataTable({
         cdf <- ptm_df[ptm_df$Protein == input$protein_choice, ]
-        
+        cdf <- cdf |> mutate(across(where(is.numeric), 
+                                    ~format(round(., 2), nsmall = 2)))
+               
         if (input$PTM_type == "acetylation") {
             cdf <- cdf[cdf$PTM == "Acetylation", ]
+            
         } else if (input$PTM_type == "phosphorylation") {
             cdf <- cdf[cdf$PTM == "Phosphorylation", ]
         }
         
         DT::datatable(cdf, 
                   selection = 'single',
-                  options = list(pageLength = 5))
+                  options = list(pageLength = 5), rownames = FALSE)
     })
     
     # Update the selected row when user clicks
@@ -241,7 +244,7 @@ server <- function(input, output) {
                 cols = -c(Protein, Site, PTM),
                 names_to = c("cell_line", "replicate"),
                 names_pattern = "(.*)_([0-9])$",
-                values_to = "average relative abundance"
+                values_to = "relative abundance"
               ) |>
               mutate(cell_line = gsub("_$", "", cell_line))
         
@@ -250,7 +253,7 @@ server <- function(input, output) {
             # Perform ANOVA
             ggboxplot(ptm_long, 
                   x = "cell_line", 
-                  y = "average relative abundance",
+                  y = "relative abundance",
                   color = "cell_line", 
                   palette = "jco",
                   add = "jitter") +
@@ -264,7 +267,7 @@ server <- function(input, output) {
             # Perform kruskal.test t-test
             ggboxplot(ptm_long, 
                   x = "cell_line", 
-                  y = "average relative abundance",
+                  y = "relative abundance",
                   color = "cell_line", 
                   palette = "jco",
                   add = "jitter") +
